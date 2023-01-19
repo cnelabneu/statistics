@@ -12,6 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 #load libraries
 ```{r}
+library(gitcreds)
 library(tidyverse)
 library(broom)
 ```
