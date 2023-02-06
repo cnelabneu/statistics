@@ -17,4 +17,73 @@ library(tidyverse)
 library(broom)
 library(f)
 ```
+#load data
+```{r}
+library(haven)
+FAST_Master_Final <- read_sav("FAST_Master_Final.sav")
+View(FAST_Master_Final)
+
+library(readxl)
+FAST_ALL <- read_excel("~/Library/Mobile Documents/com~apple~CloudDocs/Studies/FAST/Master Data/FAST_ALL.xlsx")
+View(FAST_ALL)
+
+df <- FAST_Master_Final
+save(df, file ="df.Rdata")
+
+load(file = "df.Rdata")
+
+```
+#explore the data
+```{r}
+cog <- FAST_ALL %>%
+select(Pre_digitsym,
+       Pre_patterncomp,
+       Pre_lettercomp,
+       Pre_wordrecall,
+       Pre_logicalmemory,
+       Pre_pairedassoc,
+       Pre_shipley_abstract,
+       Pre_formboard,
+       Pre_letterset,
+       Pre_matrixreas,
+       Pre_paperfolding,
+       Pre_spatialrel,
+       Pre_vocab_total,
+       Pre_picvocab_total,
+       Pre_synonym,
+       Pre_antonym,
+       Pre_synant,
+       Pre_digitsym,
+       )
+
+cog1 <- FAST_ALL %>%
+  select(75:91)
+
+
+install.packages("psych")
+library(psych)
+
+cog2 <- cog1 %>%
+  select(6:12)
+
+pairs.panels(cog2)
+
+```
+#run PCA
+```{r}
+
+class(cog1$Pre_digitsym)
+cog1$Pre_digitsym <- as.numeric(cog1$Pre_digitsym)
+cog1 <- cog1 %>%
+  mutate_if(is.character, as.numeric)
+
+cog1 <- na.omit(cog1)
+
+results <- prcomp(cog1, scale = TRUE)
+
+results$rotation <- -1*results$rotation
+
+results$rotation
+
+```
 
