@@ -1,0 +1,1373 @@
+---
+title: "AppliedBiostats"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+## This is a code book for the second half of the 2025 Experimental design and applied biostatistics course PT7005
+
+---
+title: "Applied Biostats"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+# Simple linear regression practicum
+
+Does age associate with blood pressure?
+
+```{r}
+#$load in the data
+save(bpf, file = "bpf.Rdata")
+load("bpf.Rdata")
+
+# load libraries
+library(ggplot2)
+library(tidyverse)
+library(skimr)
+```
+
+## Visualizing you data
+
+```{r}
+# a smart way to get a global look at your dataframe
+skim(bpf)
+
+# lets do some individual plots
+
+# Create a box plot
+p1 <- ggplot(bpf, aes(x = gender, y = bpf, fill = gender)) +
+  geom_boxplot(alpha = 0.7) +  # Box plot with transparency
+  geom_jitter(width = 0.2, alpha = 0.3) +  # Adds jittered points for visualization
+  labs(title = "Box Plot of bpf by Gender",
+       x = "Gender",
+       y = "bpf") +
+  theme_minimal() +
+  scale_fill_manual(values = c("steelblue", "salmon"))  # Custom colors
+p1
+
+# Create a scatter plot
+p2 <- ggplot(bpf, aes(x = age, y = bpf)) +
+  geom_point(color = "blue", alpha = 0.6) +
+  geom_smooth(method = "lm", color = "red", se = TRUE) +
+  labs(title = "Age vs bpf",
+       x = "Age",
+       y = "bpf") +
+  theme_minimal()
+p2
+
+# Plot a histogram of a single continuous variable 
+p3 <- ggplot(bpf, aes(x = age)) +
+  geom_histogram(binwidth = 5, fill = "steelblue", color = "black", alpha = 0.7) +
+  labs(title = "Histogram of Age",
+       x = "Age",
+       y = "Count") +
+  theme_minimal()
+p3
+
+# Plot a histrogram now overlay gender
+p4 <- ggplot(bpf, aes(x = age, fill = gender)) +
+  geom_histogram(binwidth = 5, position = "dodge", color = "black") +
+  labs(title = "Side-by-Side Histogram of Age by Gender",
+       x = "Age",
+       y = "Count",
+       fill = "gender") +
+    geom_density(linewidth = 1) +  # Add density curves
+  theme_minimal() +
+  scale_fill_manual(values = c("steelblue", "salmon"))
+p4
+
+ggplot(bpf, aes(x = age, fill = gender, color = gender)) +
+  geom_histogram(aes(y = ..density..), binwidth = 5, position = "identity", alpha = 0.4) +
+  geom_density(size = 1) +  # Add density curves
+  labs(title = "Histogram of Age by Gender with Density Curves",
+       x = "Age",
+       y = "Density",
+       fill = "gender",
+       color = "gender") +
+  theme_minimal() +
+  scale_fill_manual(values = c("steelblue", "salmon")) +  # Custom fill colors
+  scale_color_manual(values = c("blue", "red"))  # Custom line colors
+
+
+plot_multi_histogram <- function(df, feature, label_column) {
+    plt <- ggplot(df, aes(x=eval(parse(text=feature)), fill=eval(parse(text=label_column)))) +
+    geom_histogram(alpha=0.7, position="identity", aes(y = ..density..), color="black") +
+    geom_density(alpha=0.7) +
+    geom_vline(aes(xintercept=mean(eval(parse(text=feature)))), color="black", linetype="dashed", size=1) +
+    labs(x=feature, y = "Density")
+    plt + guides(fill=guide_legend(title=label_column))
+}
+p4 <- plot_multi_histogram(bpf, 'bpf', 'gender')
+p4
+
+
+library(patchwork)
+(p1 | p2) / (p3 | p4)
+(p1 | p4)
+```
+
+## Running a simple linear regression
+
+```{r}
+# correlation
+#cor.test(bpf$age, bpf$bpf)
+#simple linear regression
+lmodel <- lm(bpf ~ age, data = bpf)
+
+#lmodel <- lm(Y ~ x1, data = mreg) # build linear model with Y outcome and x1 predictor and our dataframe mreg
+
+library(performance) # load performance package to check assumptions
+check_model(lmodel) # check assumptions of linear reg
+summary(lmodel)
+
+# go back to powerpoint
+
+#check assumptions 
+library(easystats)
+check_model(lmodel) #output in console
+model_performance(lmodel)
+confint(lmodel) # calculate confidence intervals
+
+# Make some nice plots
+library(ggstatsplot)
+ggscatterstats(data = mreg, x = x1, y = Y)
+ggscatterstats(data = bpf, x = age, y = bpf)
+
+```
+
+## Confidence interval visual
+
+```{r}
+# Load libraries
+library(ggplot2)
+
+# Generate data
+set.seed(123)
+df <- data.frame(
+  x = rnorm(100, mean = 50, sd = 10)
+)
+df$y_sig <- 2 * df$x + rnorm(100, sd = 10)  # Strong relationship (significant)
+df$y_nonsig <- rnorm(100, mean = 50, sd = 30)  # No real relationship (non-significant)
+
+# Plot significant and non-significant regression lines
+ggplot(df, aes(x = x)) +
+  geom_point(aes(y = y_sig), color = "blue", alpha = 0.6) +
+  geom_smooth(aes(y = y_sig), method = "lm", color = "blue", fill = "lightblue") +
+  geom_point(aes(y = y_nonsig), color = "red", alpha = 0.6) +
+  geom_smooth(aes(y = y_nonsig), method = "lm", color = "red", fill = "pink") +
+  labs(title = "Comparison of Significant vs. Non-Significant Confidence Intervals",
+       x = "X Variable", y = "Y Variable") +
+  theme_minimal()
+
+sigmodel <- lm(y_sig ~ x, data = df)
+nonsigmodel <- lm(y_nonsig ~ x, data = df)
+summary(nonsigmodel)
+confint(nonsigmodel)
+confint(sigmodel)
+```
+
+## Standard Error
+
+**The numerator — SE of the regression** This is the noise in your data. If your data points scatter wildly around the line, your residuals are big, your SE_regression is big, and consequently your SE(β̂₁) gets bigger too. More noise = less confidence in your slope.
+
+**The denominator — spread of X values** This is √Σ(Xᵢ − X̄)², which measures how spread out your X values are. This is the more interesting and counterintuitive part:
+
+-   If your X values are **tightly clustered** (everyone is nearly the same age, for example), the denominator is small → SE(β̂₁) is **large** — you can't see the slope well because you're only looking at a tiny slice of X
+
+-   If your X values are **widely spread** (ages ranging from 20 to 80), the denominator is large → SE(β̂₁) is **small** — you have a much clearer view of how Y changes across X
+
+## When is an outlier and outlier?
+
+```{r}
+# Load required libraries
+library(ggplot2)
+
+# Set seed for reproducibility
+set.seed(123)
+
+# Generate X variable
+n <- 100
+x <- rnorm(n, mean = 50, sd = 10)
+
+# Generate Y variable (Linear Relationship)
+y <- 2 * x + rnorm(n, mean = 0, sd = 15)
+
+# Introduce Two Influential Outliers
+x_outliers <- c(20, 90)  # Extreme X values
+y_outliers <- c(400, -200)  # Extreme Y values
+
+# Append to original data
+x_with_outliers <- c(x, x_outliers)
+y_with_outliers <- c(y, y_outliers)
+
+# Create data frames
+df_no_outliers <- data.frame(x, y)
+df_with_outliers <- data.frame(x = x_with_outliers, y = y_with_outliers)
+
+# Fit Linear Models
+lm_no_outliers <- lm(y ~ x, data = df_no_outliers)
+lm_with_outliers <- lm(y ~ x, data = df_with_outliers)
+
+summary(lm_with_outliers)
+summary(lm_no_outliers)
+
+check_model(lm_no_outliers) #output in console
+check_model(lm_with_outliers) #output in console
+
+check_outliers(
+  lm_with_outliers,
+  method = "cook",
+  type = "default",
+  iterations = 100,
+  alternative = "two.sided"
+)
+
+
+# Compute Cook's Distance
+cooks_d <- cooks.distance(lm_with_outliers)
+cooks_d
+
+# Identify points with Cook's D > 4/n (common threshold)
+influential_points <- which(cooks_d > (4 / length(y_with_outliers)))
+
+# Plot 1: Regression Without Influential Outliers
+p1 <- ggplot(df_no_outliers, aes(x = x, y = y)) +
+  geom_point(color = "blue", alpha = 0.6) +
+  geom_smooth(method = "lm", color = "black", fill = "lightblue") +
+  labs(title = "Regression Without Influential Outliers", x = "X Variable", y = "Y Variable") +
+  theme_minimal()
+
+# Plot 1: Regression Without Influential Outliers
+p2 <- ggplot(df_with_outliers, aes(x = x, y = y)) +
+  geom_point(color = "red", alpha = 0.6) +
+  geom_smooth(method = "lm", color = "black", fill = "lightblue") +
+  labs(title = "Regression Without Influential Outliers", x = "X Variable", y = "Y Variable") +
+  theme_minimal()
+
+# Plot 2: Regression With Influential Outliers
+p2 <- ggplot(df_with_outliers, aes(x = x, y = y)) +
+  geom_point(color = "red", alpha = 0.6) +
+  geom_point(data = df_with_outliers[influential_points, ], aes(x = x, y = y), color = "black", size = 4, shape = 8) +  # Mark influential points
+  geom_smooth(method = "lm", color = "black", fill = "pink") +
+  labs(title = "Regression With Influential Outliers (Cook's D Marked)", x = "X Variable", y = "Y Variable") +
+  theme_minimal()
+
+p2
+# Print plots side by side
+(p1 | p2)
+```
+
+## t-statistic
+
+```{r}
+# Load necessary library
+library(ggplot2)
+
+# Set degrees of freedom (df = n - 2, assume n = 20 for this example)
+df <- 18  
+
+# Generate t-distribution curve
+t_values <- seq(-4, 4, length = 1000)
+density_values <- dt(t_values, df)
+
+# Define our t-statistic (example: t = 2.5)
+t_stat <- 2.5
+
+# Compute critical region (p-value area)
+p_value_area <- 2 * pt(-abs(t_stat), df)  # Two-tailed test
+
+# Create dataframe for plotting
+data <- data.frame(t_values, density_values)
+
+# Plot the t-distribution
+ggplot(data, aes(x = t_values, y = density_values)) +
+  geom_line(color = "blue", size = 1) +  # Plot t-distribution curve
+  geom_area(data = subset(data, t_values > abs(t_stat)), 
+            aes(x = t_values, y = density_values), fill = "red", alpha = 0.5) +  # Upper tail
+  geom_area(data = subset(data, t_values < -abs(t_stat)), 
+            aes(x = t_values, y = density_values), fill = "red", alpha = 0.5) +  # Lower tail
+  geom_vline(xintercept = c(-abs(t_stat), abs(t_stat)), linetype = "dashed", color = "black") +  # Mark t-statistic
+  labs(title = "t-Distribution with Critical Regions",
+       subtitle = paste("t-statistic =", t_stat, "| p-value =", round(p_value_area, 4)),
+       x = "t-value", y = "Density") +
+  theme_minimal()
+
+```
+
+Degrees of freedom
+
+```{r}
+# Load necessary library
+library(ggplot2)
+
+# Generate t-distribution curves for different degrees of freedom
+df_values <- c(5, 10, 20, 50)  # Different df values to compare
+x <- seq(-4, 4, length = 1000)  # Range of t-values
+
+# Create a dataframe for ggplot
+data <- data.frame(
+  x = rep(x, length(df_values)),
+  y = unlist(lapply(df_values, function(df) dt(x, df))),
+  df = factor(rep(df_values, each = length(x)))  # Convert df to a factor for color mapping
+)
+
+# Plot the t-distributions with different df
+ggplot(data, aes(x, y, color = df)) +
+  geom_line(size = 1) +
+  stat_function(fun = dnorm, color = "black", linetype = "dashed", size = 1) + # Normal distribution
+  labs(
+    title = "Comparison of t-Distributions with Different Degrees of Freedom",
+    subtitle = "Dashed black line represents the standard normal distribution",
+    x = "t-value",
+    y = "Density"
+  ) +
+  scale_color_manual(values = c("red", "blue", "green", "purple")) +
+  theme_minimal()
+
+
+```
+
+## Heteroscedasticity
+
+We are going to generate a dataframe with two continuous variables X and Y, where the Y dependent variable has an increasing variance with increasing levels of X. We will see this plotted on a residual vs fitted plot (where the residuals should show no discernible pattern and the reference line should be more or less flat and horizontal).
+
+We will then plot this and visualize on a scatter plot and run the model and look at the SE, the t-stat and the p value. Which we will then compare to a model where. is the same but Y does not have increasing variance with increasing levels of X - what we should see if that because the t-stat is directly related to the SE, and the p value is a function of the t-distribution, we should see larger SEs a lower t-stat and a larger p-value (unreliable) in the model with heteroscedasticity.
+
+```{r}
+# Set seed for reproducibility
+set.seed(123)
+
+# Generate independent variable X
+X <- rnorm(200, mean = 50, sd = 10)  # Continuous X
+# Generate dependent variable Y with increasing variance
+errors <- rnorm(200, mean = 0, sd = X / 5)  # Residuals increase with X
+Y <- 5 + 2 * X + errors  # Linear relationship with heteroscedasticity
+# Convert to dataframe
+data <- data.frame(X, Y)
+
+# Load ggplot2 for visualization
+library(ggplot2)
+
+# Plot Residuals vs. Fitted Values to visualize heteroscedasticity
+model <- lm(Y ~ X)
+ggplot(data, aes(model$fitted.values, resid(model))) +
+  geom_point(color = "blue", alpha = 0.6) +
+  geom_hline(yintercept = 0, color = "red", linetype = "dashed") +
+  labs(title = "Residuals vs Fitted Plot (Heteroscedasticity)",
+       x = "Fitted Values",
+       y = "Residuals") +
+  theme_minimal()
+
+# Scatter plot with trend line
+ggplot(data, aes(X, Y)) +
+  geom_point(color = "blue", alpha = 0.6) +  # Scatter plot
+  geom_smooth(method = "lm", color = "red", se = FALSE) +  # Linear fit
+  labs(title = "Heteroscedasticity Example: Increasing Variance in Residuals",
+       x = "X (Independent Variable)",
+       y = "Y (Dependent Variable)") +
+  theme_minimal()
+
+summary(model)
+
+library(lmtest)
+bptest(model)
+```
+
+comparison with data that do not violate the assumption of homoscedasticity
+
+```{r}
+# Set seed for reproducibility
+set.seed(123)
+
+# Generate independent variable X
+X <- rnorm(200, mean = 50, sd = 10)  # Continuous X
+
+# Generate dependent variable Y with increasing variance
+#errors <- rnorm(200, mean = 0, sd = X / 5)  # Residuals increase with X
+#Y <- 5 + 2 * X + errors  # Linear relationship with heteroscedasticity
+
+# Generate Y as a linear function of X with constant variance
+errors <- rnorm(200, mean = 0, sd = 5)  # Constant variance error term
+Y <- 5 + 2 * X + errors  # Linear relationship without heteroscedasticity
+
+# Convert to dataframe
+data <- data.frame(X, Y)
+
+# Scatter plot with trend line
+ggplot(data, aes(X, Y)) +
+  geom_point(color = "blue", alpha = 0.6) +  # Scatter plot
+  geom_smooth(method = "lm", color = "red", se = FALSE) +  # Linear fit
+  labs(title = "Heteroscedasticity Example: Increasing Variance in Residuals",
+       x = "X (Independent Variable)",
+       y = "Y (Dependent Variable)") +
+  theme_minimal()
+
+# Plot Residuals vs. Fitted Values to visualize heteroscedasticity
+model <- lm(Y ~ X)
+ggplot(data, aes(model$fitted.values, resid(model))) +
+  geom_point(color = "blue", alpha = 0.6) +
+  geom_hline(yintercept = 0, color = "red", linetype = "dashed") +
+  labs(title = "Residuals vs Fitted Plot (Heteroscedasticity)",
+       x = "Fitted Values",
+       y = "Residuals") +
+  theme_minimal()
+
+summary(model)
+```
+
+To overcome heteroscedasticity one could Use log transform
+
+```{r}
+
+# Generate dependent variable Y with increasing variance
+errors <- rnorm(200, mean = 0, sd = X / 5)  # Residuals increase with X
+Y <- 5 + 2 * X + errors  # Linear relationship with heteroscedasticity
+Ylog = log(Y)
+
+model <- lm(Ylog ~ X)
+summary(model)
+
+# Scatter plot with trend line
+ggplot(data, aes(X, Ylog)) +
+  geom_point(color = "blue", alpha = 0.6) +  # Scatter plot
+  geom_smooth(method = "lm", color = "red", se = FALSE) +  # Linear fit
+  labs(title = "Heteroscedasticity Example: Increasing Variance in Residuals",
+       x = "X (Independent Variable)",
+       y = "Y (Dependent Variable)") +
+  theme_minimal()
+
+# Plot Residuals vs. Fitted Values to visualize heteroscedasticity
+model <- lm(Ylog ~ X)
+ggplot(data, aes(model$fitted.values, resid(model))) +
+  geom_point(color = "blue", alpha = 0.6) +
+  geom_hline(yintercept = 0, color = "red", linetype = "dashed") +
+  labs(title = "Residuals vs Fitted Plot (Heteroscedasticity)",
+       x = "Fitted Values",
+       y = "Residuals") +
+  theme_minimal()
+
+library(sandwich)
+coeftest(model, vcov = vcovHC(model, type = "HC1"))
+
+```
+
+## Non-normality of residuals
+
+```{r}
+# Load necessary packages
+library(ggplot2)
+
+# Set seed for reproducibility
+set.seed(123)
+
+# Generate independent variable X (continuous)
+X <- rnorm(200, mean = 50, sd = 10)
+
+# Generate Y with a skewed error term (non-normal residuals)
+errors <- rexp(200, rate = 0.2) - 5  # Exponential distribution (right-skewed)
+Y <- 5 + 2 * X + errors  # Linear relationship with non-normal residuals
+
+# Fit a simple linear regression model
+model <- lm(Y ~ X)
+
+# Extract residuals
+residuals <- resid(model)
+
+# Q-Q Plot to check normality of residuals
+ggplot(data.frame(residuals), aes(sample = residuals)) +
+  stat_qq() +
+  stat_qq_line(color = "red") +  # Reference line for normality
+  labs(title = "Q-Q Plot of Residuals (Non-Normal)",
+       x = "Theoretical Quantiles",
+       y = "Sample Quantiles") +
+  theme_minimal()
+
+```
+
+## Non-independence
+
+Here we create two datasets, one with independent samples and another where we introduce autocorrelation, where sets of Y value depend on the previous value of Y (clustered data for example).
+
+We see that in 1, the residuals are normally distributed and evenly-ish spaced around the OLS line and the other has clustered points. You can tell just by looking at a plot per se that you have violated the independence assumption, that should come from **knowledge about your study design**.
+
+```{r}
+# Load required library
+library(ggplot2)
+
+# Set seed for reproducibility
+set.seed(123)
+
+# Generate independent data
+n <- 100
+x_indep <- rnorm(n, mean = 50, sd = 10)  # X variable
+y_indep <- 2 * x_indep + rnorm(n, mean = 0, sd = 15)  # Y variable (independent)
+
+# Generate non-independent data (autocorrelated Y)
+y_auto <- numeric(n)
+y_auto[1] <- 2 * x_indep[1] + rnorm(1, mean = 0, sd = 15)  # First value
+for (i in 2:n) {
+  y_auto[i] <- 0.7 * y_auto[i - 1] + (2 * x_indep[i]) + rnorm(1, mean = 0, sd = 10)  # Autocorrelation
+}
+
+# Create independent scatter plot with regression line
+p1 <- ggplot(data.frame(x_indep, y_indep), aes(x = x_indep, y = y_indep)) +
+  geom_point(color = "blue", alpha = 0.6) +
+  geom_smooth(method = "lm", color = "black", fill = "lightblue") +
+  labs(title = "Independent Samples: Linear Model", x = "X Variable", y = "Y Variable") +
+  theme_minimal()
+
+# Create autocorrelated scatter plot with regression line
+p2 <- ggplot(data.frame(x_indep, y_auto), aes(x = x_indep, y = y_auto)) +
+  geom_point(color = "red", alpha = 0.6) +
+  geom_smooth(method = "lm", color = "black", fill = "pink") +
+  labs(title = "Non-Independent (Autocorrelated) Samples", x = "X Variable", y = "Y Variable") +
+  theme_minimal()
+
+# Print plots side by side
+library(gridExtra)
+grid.arrange(p1, p2, ncol = 2)
+
+(p1 | p2)
+
+
+```
+
+## Centering for intercept and multicolinearity
+
+When we do not "center" X, the intercept represents the value of Y when X is = 0. If a zero X doesn't exits in your data (e.g., age) then the intercept is meaningless. But, we can center our X (and covariates in the case of multiple linear regression). This makes the intercept = to the value of Y when X is at its mean.
+
+```{r}
+# Generate Data
+set.seed(123)
+X <- rnorm(100, mean = 50, sd = 10)  # Single predictor (e.g., Age)
+Y <- 2 + 0.5 * X + rnorm(100, mean = 0, sd = 5)  # Outcome
+
+# Fit Model Without Centering
+model1 <- lm(Y ~ X)
+summary(model1)  # Intercept represents Y when X = 0
+
+# Center X
+X_centered <- X - mean(X)
+
+# Fit Model With Centering
+model2 <- lm(Y ~ X_centered)
+summary(model2)  # Intercept now represents Y at the mean of X
+
+```
+
+# Linear regression with a dichotomous predictor
+
+What assumption are we making when using a linear model with a binary predictor? (equal variance between groups - homogeneity of variance!). Here we see that both lm and a t-test that assumes equal variance results in the same t-stat and p value and mean difference (although R t.test does not output the mean difference). Remember, b0 is equal to Y at the value of your reference value (0, which = females), mean Y of males therefore is b0 + b1, and so b1 = mean difference between males and females. Knowing how you coded your binary variable (which is the ref) is fundamental in interpreting your output.
+
+```{r}
+# Run you model with binary predictor
+dlmodel <- lm(bpf ~ gender, data = bpf)
+summary(dlmodel) # summary output
+confint(dlmodel) # cinfidence intervals
+
+# Compare to a t-test with and without assuming eqaul variance
+t.test(bpf ~ gender, data = bpf) # Welch's t-test that doesnt assume equal variance
+t.test(bpf ~ gender, data = bpf, var.equal = TRUE) # Pooled variance t-test closer to assmption of equal variance from lm 
+```
+
+# Multiple Regression
+
+## Visualizing your data
+
+Lets make some data, visualize it using skim and then make some plots. What do we see with X1 and X2? What do we need to look out for?
+
+```{r}
+# Lets generate some data first 
+set.seed(123)  # Set seed for reproducibility
+
+# Generate correlated predictors x1 and x2
+n <- 200  # Sample size
+x1 <- rnorm(n, mean = 50, sd = 10)  # Predictor 1
+x2 <- 0.5 * x1 + rnorm(n, mean = 0, sd = 5)  # Predictor 2, mildly correlated with x1
+
+# Independent predictor x3
+x3 <- rnorm(n, mean = 30, sd = 8)
+
+# Categorical predictor x4 with two levels
+x4 <- sample(c("A", "B"), size = n, replace = TRUE)
+
+# Create outcome Y as a function of predictors + random noise
+Y <- 5 + 0.7 * x1 - 0.5 * x2 + 0.3 * x3 + ifelse(x4 == "A", 2, -2) + rnorm(n, mean = 0, sd = 3)
+
+# Combine into a dataframe
+mreg <- data.frame(Y, x1, x2, x3, x4)
+
+# Overview of data 
+skim(mreg)
+
+# correlation matrix 
+# (more options @ https://cran.r-project.org/web/packages/corrplot/vignettes/corrplot-intro.html)
+library(corrplot)
+p1 <- corrplot(cor(mreg[, c("x1", "x2", "x3", "Y")]), method = "ellipse", addCoef.col = 'black', type = 'upper')
+
+# Create a box plot of the categorical varibale and the Y outcome
+p2 <- ggplot(mreg, aes(x = x4, y = Y, fill = x4)) +
+  geom_boxplot(alpha = 0.7) +  # Box plot with transparency
+  geom_jitter(width = 0.2, alpha = 0.3) +  # Adds jittered points for visualization
+  labs(title = "Box Plot of X4 and Y",
+       x = "X",
+       y = "Y") +
+  theme_minimal() +
+  scale_fill_manual(values = c("steelblue", "salmon"))  # Custom colors
+p2
+
+# Create a scatter plot of x2 and Y
+p3 <- ggplot(mreg, aes(x = x2, y = Y)) +
+  geom_point(color = "blue", alpha = 0.6) +
+  geom_smooth(method = "lm", color = "red", se = TRUE) +
+  labs(title = "X2 vs Y",
+       x = "x2",
+       y = "Y") +
+  theme_minimal()
+p3
+
+# Create a scatter plot of x1 and x2 
+p4 <- ggplot(mreg, aes(x = x1, y = x2)) +
+  geom_point(color = "blue", alpha = 0.6) +
+  geom_smooth(method = "lm", color = "red", se = TRUE) +
+  labs(title = "X1 vs X2",
+       x = "x1",
+       y = "x2") +
+  theme_minimal()
+p4
+
+
+(p2) / (p3 | p4)
+
+# simulate some more data where x2 is a confounder and reduces the effect of x1 on y when added to the model because x2 accounts for some of the varaince in y.
+
+# Set seed for reproducibility
+set.seed(123)
+
+# Simulate data
+n <- 500  # Sample size
+X2 <- rnorm(n, mean=50, sd=10)  # Confounder
+X1 <- 0.5 * X2 + rnorm(n, mean=0, sd=5)  # Predictor correlated with X2
+Y  <- 2.0 * X1 + 3.0 * X2 + rnorm(n, mean=0, sd=10)  # Outcome influenced by both X1 and X2
+
+# Combine into a dataframe
+mreg2 <- data.frame(Y, X1, X2)
+
+# visualize using skim
+skim(mreg2)
+
+```
+
+## Running multiple linear regression with confounds
+
+Because X2 is correlated with X1 and Y, the effect of X1 is reduced when we include X2 in the model, because we arew now partitioning the variance between X1 and X2, isolating the effect of each on Y.
+
+```{r}
+
+# Fit the model without controlling for X2
+model1 <- lm(Y ~ X1, data = mreg2)
+summary(model1)
+
+# Fit the model controlling for X2
+model2 <- lm(Y ~ X1 + X2, data = mreg2)
+summary(model2)
+```
+
+Visualizing your model can be helpful to tell your story, but simple scatter plots only tell the effect of one predictor (x1) on the outcome (Y). So we can use partial residual plots to illustrate the effect of your predictor (independent variable) of interest on Y after accounting for other covariates in the model.
+
+To do this we must first extract the residuals from the model (the error variance or the variance not explained by the combined effect of all the variables in the model), and then add back in the estimated effect of just the predictor of interest (the estimate/coefficient for X1). This then shows the isolated effect of x1 on Y after accounting for the variance explained by the other predictors.
+
+```{r}
+# Compute partial residuals for 'x1'after accounting for X2
+mreg2$partial_resid <- residuals(model2) + coef(model2)["X1"] * mreg2$X1
+
+# Scatter plot with ggplot2
+ggplot(mreg2, aes(x = X1, y = partial_resid)) +
+  geom_point(color = "blue") +
+  geom_smooth(method = "lm", color = "red", se = FALSE) +
+  labs(title = "Partial Residual Plot for X1",
+       x = "X1", y = "Partial Residuals") +
+  theme_minimal()
+
+```
+
+## Multicollinearity
+
+If two proposed or utilized independent variables in your model are highly co-linear then their effects can become indistinguishable or uninterpretable because the model can arbitrarily assign more weight to one vs the other, it can inflate the standard errors and cause the coefficient estimates to be unstable.
+
+Because pairwise correlation is not the same thing as shared predictive variance two correlated predictors can lead to low VIF (meaning they do not result in multicollinearity), so lets simulate some data that does.
+
+```{r}
+# Load necessary library
+library(car)  # For VIF calculation
+
+# Simulate data
+set.seed(123)
+n <- 100
+X1 <- rnorm(n, mean = 10, sd = 5)  
+X2 <- X1 * 0.9 + rnorm(n, mean = 0, sd = 1)  # Strong correlation with X1 (r ≈ 0.9)
+Y  <- X1 * 3 + X2 * 2 + rnorm(n, mean = 0, sd = 5)  # X1 and X2 both predict Y
+
+#make into dataframe
+mreg3 <- data.frame(Y, X1, X2)
+
+# Fit regression model
+model3 <- lm(Y ~ X1 + X2, data = mreg3)
+summary(model3)
+check_model(model3)
+
+# Calculate VIF (over 10 means multicollinearity)
+vif(model3)
+
+```
+
+## Bootstrapping
+
+Bootstrapping is a method of resampling. Your sample if often never going to match the true population parameter and so bootstrapping takes repeated samples (often with replacement) and runs the model or calculates to 95% CI or the effect within each bootstrap sample. You can then look at the distribution of the effects across each resample to see how much variance there would be if you ran your model in different samples.
+
+```{r}
+# Load necessary packages
+library(tidymodels)
+library(ggplot2)
+
+# Set seed for reproducibility
+set.seed(123)
+
+# Simulate data
+n <- 100
+data <- tibble(
+  X = rnorm(n, mean = 5, sd = 2),  # Predictor
+  Y = 3 + 1.5 * X + rnorm(n, sd = 2)  # Outcome with noise
+)
+
+# Create 1000 bootstrap resamples
+boot_resamples <- bootstraps(data, times = 1000)
+
+# Define a linear regression model
+lm_spec <- linear_reg() %>%
+  set_engine("lm")
+
+# Fit model on each bootstrap sample and extract beta_1 (slope)
+boot_results <- boot_resamples %>%
+  mutate(
+    model = map(splits, ~ fit(lm_spec, Y ~ X, data = analysis(.x))),
+    beta_1 = map_dbl(model, ~ tidy(.x) %>% filter(term == "X") %>% pull(estimate))
+  )
+
+# Extract bootstrapped beta estimates
+beta_1_vals <- boot_results$beta_1
+
+# Compute 95% confidence interval (percentile method)
+ci_95 <- quantile(beta_1_vals, probs = c(0.025, 0.975))
+
+# Calculate mean beta_1
+mean_beta_1 <- mean(beta_1_vals)
+
+# Plot the distribution of bootstrapped beta_1 estimates with 95% CI
+ggplot(data.frame(beta_1_vals), aes(x = beta_1_vals)) +
+  geom_histogram(bins = 30, fill = "skyblue", color = "black", alpha = 0.7) +
+  geom_vline(xintercept = mean_beta_1, color = "red", linetype = "dashed", size = 1.2, label="Mean") +
+  geom_vline(xintercept = ci_95[1], color = "blue", linetype = "dashed", size = 1, label="Lower 95% CI") +
+  geom_vline(xintercept = ci_95[2], color = "blue", linetype = "dashed", size = 1, label="Upper 95% CI") +
+  labs(title = "Bootstrapped Distribution of Beta_1 with 95% CI",
+       x = "Bootstrapped Beta_1 Estimates",
+       y = "Frequency") +
+  theme_minimal()
+
+
+model <- lm(Y ~ X, data = data)
+summary(model)
+mean_beta_1
+
+```
+
+# Mediation
+
+The mediation (indirect, denoted as “ACME”) effects are calculated as the average difference between the direct and total effect. That is, if the effect of X on Y is reduced significantly when adding M into the model, then it is interpreted as though the mediator explains some of the effect of X on Y.
+
+In the mediation package, two linear regression models are fit (the mediator model- the effect of X on M + covariates and the outcome model – effect of X on Y including M and covariates). The models constitute the input into the mediation model to calculate the Direct effects (‘ADE’ which is the effect of X on Y and could be interpreted as for every 1-unit increase in EELA there is an x (“estimate”) increase in Y), the average causal mediation effect, which is the indirect effect of X on Y through M, which is calculated as the total effect (the reduction in the effect of X on Y when accounting for M), minus the direct effect.
+
+Direct effect is the adjusted effect of X on Y holding M constant
+
+Total effect is the unadjusted effect of X on Y without M
+
+Indirect effect is the ACME or the amount of the total effect that is explained by the mediator (c path)
+
+```{r}
+# Load necessary libraries
+library(ggplot2)
+library(dplyr)
+library(mediation)
+library(tidymodels)
+
+# simulate some data using dlpyr
+n <- 300
+mediation <- tibble(
+  ELE = rnorm(n, mean = 50, sd = 10),  # Predictor
+  educ = 0.6 * ELE + rnorm(n, mean = 0, sd = 5), # Mediator
+  cog = 0.3 * ELE + 0.7 * educ + rnorm(n, mean = 0, sd = 5)  # Outcome with noise
+)
+
+# save the dataframe
+save(mediation, file = "mediation.Rdata") # save the data
+
+load(file = "mediation.Rdata")
+
+library(skimr)
+skim(mediation)
+
+library(mediation)
+set.seed(465)
+model.m <- lm(educ ~ ELE, mediation)
+model.y <- lm(cog ~ ELE + educ, mediation)
+model.t <- lm(cog ~ ELE, mediation)
+results <- mediate(model.m, model.y, treat = "ELE", mediator = "educ",
+                   boot = TRUE, sims = 1000)
+summary(results)
+# run the models
+#set.seed(356)
+#library(mediation)
+#model.M <- lm(educ ~ ELE, mediation)
+#model.Y <- lm(cog ~ ELE + educ, mediation)
+#results <- mediate(model.M, model.Y, treat='ELE', mediator='educ',
+#                  boot=TRUE, sims=1000)
+#summary(results)
+#summary(model.M)
+#summary(model.Y)
+
+summary(lm(cog ~ ELE, data = mediation))
+summary(lm(cog ~ ELE + educ, data = mediation))
+```
+
+Mediation is still regression and so your assumptions are still important.
+
+# Moderation
+
+Continuous moderator interaction beta = how much the X-Y slope changes for every 1-unit increase in M- remember, the X-Y slope itself represents for every 1-unit change in X there is an x unit change in Y, so the X\*M beta is bounded by the units of M and the units of Y are preserved - just like in a lm without an interaction, we can standardize the beta's to interpret them as SD change.
+
+To breakdown the interaction term with a simple slopes analysis, sometimes called marginal effects - this is where we calculate the beta slope for each level of M and test the null hypothesis under each level of M. If M is continuous, we can break it down into +1sd, -1sd and mean values of M, or if M has a unit that is easily interpretable, we can provide the range of M values for which to test the simple slopes (e.g., if Age is M, we can ask what the X-Y slope is for those age 10-20, 21-40, 41-60 ect).
+
+For a dichotomous M, the beta estimate represents the difference in the X-Y slopes for each level of M.
+
+```{r}
+# Load required packages
+library(ggplot2)
+library(dplyr)
+
+# Set seed for reproducibility
+set.seed(123)
+
+# Sample size
+n <- 300
+
+# Simulate categorical predictor (Intervention: 0 = Control, 1 = Treatment)
+group <- sample(c(0, 1), size = n, replace = TRUE)
+
+# Simulate continuous moderator (M1)
+age <- rnorm(n, mean = 50, sd = 10)  # Continuous moderator (e.g., age, baseline score)
+
+# Simulate categorical moderator (M2) with 3 levels
+exercise <- factor(sample(c("Low", "Medium", "High"), size = n, replace = TRUE))
+
+# Assign numerical values to categorical moderator for interaction effect
+exercise_num <- as.numeric(exercise)  # Converts to 1 (Low), 2 (Medium), 3 (High)
+
+# Generate outcome variable Y with main effects and interactions
+Cognition <- 50 + 
+  10 * group +       # Main effect of intervention
+  0.5 * age +     # Main effect of continuous moderator
+  5 * exercise_num +   # Main effect of categorical moderator
+  3 * group * age +   # Interaction between X and M1
+  4 * group * exercise_num + # Interaction between X and M2
+  rnorm(n, mean = 0, sd = 5)  # Random noise
+
+# Create a dataframe
+moderation <- data.frame(group = factor(group, labels = c("Control", "Treatment")), age, exercise, Cognition)
+
+save(moderation, file = "moderation.Rdata")
+
+# View first few rows
+head(moderation)
+
+#convert categorical predictors to dummy vars
+moderation <- moderation %>%
+  mutate(exercise = as.numeric(exercise))
+
+######
+library(tidyverse)
+set.seed(123)  # For reproducibility
+
+# Number of observations
+n <- 200  
+
+# Simulate continuous predictor (X)
+X <- rnorm(n, mean = 50, sd = 10)
+
+# Simulate continuous moderator (m1)
+m1 <- rnorm(n, mean = 30, sd = 5)
+
+# Simulate categorical moderator (m2) with 3 levels
+m2 <- sample(c("low", "medium", "high"), size = n, replace = TRUE)
+
+# Convert categorical variable to factor
+m2 <- factor(m2, levels = c("low", "medium", "high"))
+
+# Generate outcome (Y) with interaction effects
+# Base effect of X
+Y <- 5 + 0.6 * X + 0.3 * m1 + 
+     0.5 * (X * m1) +  # Interaction between X and continuous moderator
+     ifelse(m2 == "medium", 0.8 * X, 0) +  # X effect changes at medium level
+     ifelse(m2 == "high", -0.5 * X, 0) +   # X effect changes at high level
+     rnorm(n, mean = 0, sd = 5)  # Random noise
+
+# Create a tidy dataframe
+df <- tibble(X, m1, m2, Y)
+
+moderation <- df %>%
+  rename(exercise = X,
+         bmi = m1,
+         educ = m2,
+         cog = Y)
+# View first few rows
+print(head(moderation))
+
+save(moderation, file = "moderation.Rdata")
+
+load(file = "moderation.Rdata")
+
+skim(moderation)
+
+
+model2 <- lm(cog ~ exercise + bmi + exercise*bmi, moderation)
+summary(model2)
+
+interact_plot(model2, pred = exercise, modx = bmi, partial.residuals = TRUE)
+
+simple_slopes(model2, pred = exercise, modx = bmi, control.fdr = TRUE, confint = TRUE)
+
+#sim_slopes(model2, pred = exercise, modx = bmi, robust = "HC3", control.fdr = TRUE,   confint = TRUE)
+
+# Build model including interacton term
+#model2 <- lm(cog ~ exercise + bmi + exercise*bmi, data = moderation)
+#summary(model2)
+# Run interact plot
+#library(interactions)
+#interact_plot(model2, pred = exercise, modx = bmi, partial.residuals = TRUE)
+
+# Calculate simple slopes
+#library(ggstance)
+#sim_slopes(model2, pred = exercise, modx = bmi, robust = "HC3", control.fdr = TRUE,   confint = TRUE)
+
+
+# Calculate the level of age at the point which the slope between exercise and cognition becomes insignificant 
+#johnson_neyman(model, pred = VO2max_rel, modx = BMI, mod2 = HouseholdIncome, alpha = .05)
+
+```
+
+# ANOVA and LM for categorical questions
+
+In this chunk we are going to compare the use of ANOVA and linear regression to ask if there are differences in means of a continuous outcome between groups
+
+```{r}
+# Load necessary libraries
+library(ggplot2)
+library(dplyr)
+
+# Simulate data: 3 groups with different means
+set.seed(123)
+df <- data.frame(
+  group = rep(c("NZ", "UK", "USA"), each = 10),
+  y = c(rnorm(10, mean = 5, sd = 1),  # Group A
+        rnorm(10, mean = 6, sd = 1),  # Group B
+        rnorm(10, mean = 7, sd = 1))  # Group C
+)
+
+# Convert 'group' to a factor
+df$group <- as.factor(df$group)
+
+anova <- df
+
+save(anova, file = "anova.Rdata")
+
+skim(anova)
+
+# Visualize the data
+ggplot(anova, aes(x = group, y = y, fill = group)) +
+  geom_boxplot() +
+  theme_minimal() +
+  geom_point() +
+  labs(title = "Boxplot of Groups", y = "Response Variable (y)")
+
+# ANOVA Analysis
+anova_model <- aov(y ~ group, data = anova)
+summary(anova_model)
+tukey_posthoc <- TukeyHSD(anova_model)
+tukey_posthoc
+
+# Linear Regression with Factor Coding
+lm_model <- lm(y ~ group, data = anova)
+summary(lm_model)
+
+# re-order to make USA reference level
+anova$group <- relevel(anova$group, ref = "USA")
+
+# If your hypothesis wants you to ask for the difference in GPD between two specific pairs, then you can do pairwsie compariusoons, again contrlling for the number of comparisons you run. 
+
+library(emmeans)
+emmeans(lm_model, pairwise ~ group, adjust = "tukey")
+
+
+```
+
+# Repeated measures - two time points
+
+We are going to simulate some data of two groups (intervention and control), two time points (pre and post) and a continuous outcome Y. We are going to then test the hypothesis that the intervention has a greater effect on the outcome compared to the control group, using 1. ANCOVA, 2. Repeated Measures ANOVA 3. Linear model.
+
+```{r}
+set.seed(123)  # For reproducibility
+
+# Define sample size per group
+n_per_group <- 50  # 50 participants per group
+
+# Create data frame with ID, Group, and Time
+data <- data.frame(
+  ID = rep(1:(2 * n_per_group), each = 2),  # Each participant appears twice (Pre & Post)
+  Group = rep(c("Control", "Treatment"), each = n_per_group * 2),  # Assign groups
+  Time = rep(c("Pre", "Post"), times = 2 * n_per_group)  # Two time points per subject
+)
+
+# Generate baseline (Pre) scores
+pre_scores <- rnorm(2 * n_per_group, mean = 50, sd = 10)  # Random normal distribution
+
+# Generate Post scores with different changes for Control and Treatment groups
+post_scores <- pre_scores + ifelse(data$Group == "Control", 
+                                   rnorm(2 * n_per_group, mean = 2, sd = 5),  # Small change
+                                   rnorm(2 * n_per_group, mean = 7, sd = 5))  # Larger change
+
+# Assign scores based on time
+data$Score <- ifelse(data$Time == "Pre", pre_scores, post_scores)
+
+# View first few rows
+head(data)
+
+
+
+
+
+# ClAUDE DATA SIM
+ 
+# R code to simulate data for a repeated measures study with treatment and control groups
+# The dataset will include demographic variables and show greater pre-post change in the treatment group
+
+# Set seed for reproducibility
+set.seed(42)
+
+# Set parameters
+n_participants <- 100  # Total number of participants
+prop_treatment <- 0.5  # Proportion in treatment group
+
+# Demographic parameters
+age_mean <- 35
+age_sd <- 10
+prop_female <- 0.55
+education_mean <- 14
+education_sd <- 3
+
+# Outcome parameters
+pre_score_mean <- 25
+pre_score_sd <- 5
+# Effect sizes
+control_effect <- -2  # Small improvement in control group
+treatment_effect <- -8  # Larger improvement in treatment group
+post_score_sd <- 6
+
+# Generate participant IDs
+participant_id <- 1:n_participants
+
+# Assign participants to groups (0=control, 1=treatment)
+group <- sample(c(0, 1), n_participants, replace = TRUE, 
+                prob = c(1-prop_treatment, prop_treatment))
+
+# Generate demographic variables
+age <- round(rnorm(n_participants, mean = age_mean, sd = age_sd))
+# Ensure ages are reasonable
+age <- pmax(18, pmin(75, age))
+
+sex <- rbinom(n_participants, 1, prop_female)  # 1=female, 0=male
+
+education <- round(rnorm(n_participants, mean = education_mean, sd = education_sd))
+# Ensure education is reasonable
+education <- pmax(8, pmin(22, education))
+
+# Generate pre-treatment scores
+pre_score <- rnorm(n_participants, mean = pre_score_mean, sd = pre_score_sd)
+
+# Generate post-treatment scores
+# Control group: small improvement
+post_score_control <- pre_score[group == 0] + 
+                      rnorm(sum(group == 0), mean = control_effect, sd = post_score_sd)
+
+# Treatment group: larger improvement
+post_score_treatment <- pre_score[group == 1] + 
+                        rnorm(sum(group == 1), mean = treatment_effect, sd = post_score_sd)
+
+# Combine post scores
+post_score <- numeric(n_participants)
+post_score[group == 0] <- post_score_control
+post_score[group == 1] <- post_score_treatment
+
+# Create the dataset
+treatment_study <- data.frame(
+  participant_id = participant_id,
+  group = group,
+  age = age,
+  sex = sex,
+  education = education,
+  pre_score = pre_score,
+  post_score = post_score
+)
+
+# Calculate change scores to verify effect
+treatment_study$change <- treatment_study$post_score - treatment_study$pre_score
+
+# Verify the data
+summary_by_group <- aggregate(
+  cbind(age, education, sex, pre_score, post_score, change) ~ group, 
+  data = treatment_study, 
+  FUN = function(x) c(mean = mean(x), sd = sd(x))
+)
+print(summary_by_group)
+
+# Run t-test to verify the difference in change scores
+t_test_result <- t.test(change ~ group, data = treatment_study)
+print(t_test_result)
+
+# Check if the effect is as expected
+cat("\nMean change in control group:", mean(treatment_study$change[treatment_study$group == 0]))
+cat("\nMean change in treatment group:", mean(treatment_study$change[treatment_study$group == 1]))
+
+# Write the dataset to a CSV file
+write.csv(treatment_study, "treatment_study.csv", row.names = FALSE)
+
+# Let's also create some visualizations to check the data
+
+# If you want to use ggplot2 for better visualizations
+# install.packages("ggplot2")
+library(ggplot2)
+
+# Plot pre and post scores by group
+ggplot(treatment_study, aes(x = factor(group), y = change, fill = factor(group))) +
+  geom_boxplot() +
+  labs(title = "Change Scores by Group",
+       x = "Group (0 = Control, 1 = Treatment)",
+       y = "Change Score (Post - Pre)",
+       fill = "Group") +
+  scale_fill_manual(values = c("lightblue", "salmon"),
+                   labels = c("Control", "Treatment")) +
+  theme_minimal()
+
+# Create a summary dataset for pre/post visualization
+library(reshape2)
+treatment_study_long <- melt(treatment_study, 
+                            id.vars = c("participant_id", "group"), 
+                            measure.vars = c("pre_score", "post_score"),
+                            variable.name = "time_point",
+                            value.name = "score")
+
+# Calculate means and standard errors by group and time point
+summary_stats <- aggregate(
+  score ~ group + time_point, 
+  data = treatment_study_long, 
+  FUN = function(x) c(mean = mean(x), se = sd(x)/sqrt(length(x)))
+)
+
+# Plot pre and post means with error bars
+ggplot(summary_stats, aes(x = time_point, y = score[,"mean"], 
+                          group = factor(group), color = factor(group))) +
+  geom_line(size = 1) +
+  geom_point(size = 3) +
+  geom_errorbar(aes(ymin = score[,"mean"] - score[,"se"], 
+                    ymax = score[,"mean"] + score[,"se"]),
+                width = 0.2) +
+  labs(title = "Pre and Post Scores by Group",
+       x = "Time Point",
+       y = "Score",
+       color = "Group") +
+  scale_color_manual(values = c("blue", "red"),
+                    labels = c("Control", "Treatment")) +
+  theme_minimal()
+```
+
+ANCOVA
+
+```{r}
+# Load necessary library
+library(car)  # For ANCOVA diagnostics
+
+# Reshape from long to wide format
+ancova_data <- data %>%
+  pivot_wider(names_from = Time, values_from = Score) %>%
+  rename(Pre = Pre, Post = Post)  # Renaming for clarity
+
+# View the first few rows
+head(ancova_data)
+
+# Fit ANCOVA model
+
+# ANCOVA using AOV function
+ancova_model_aov <- aov(Post ~ Group + Pre, data = ancova_data)
+
+# summary of results
+summary(ancova_model_aov)
+
+# Run ANCOVA using lm
+ancova_model <- lm(Post ~ Group + Pre , data = ancova_data)
+summary(ancova_model)
+
+# View summary of results
+summary(ancova_model)
+
+# Check ANCOVA assumptions (homogeneity of regression slopes)
+Anova(ancova_model, type = "III")  # Type III SS for interaction check
+
+```
+
+Linear model
+
+```{r}
+# linear model 
+
+lmod <- lm(Score ~ Group + Time + Group*Time, data = data)
+summary(lmod)
+```
+
+# Repeated measures - 3+ time points
+
+```{r}
+# Load necessary libraries
+library(lme4)
+library(ggplot2)
+
+# Set seed for reproducibility
+set.seed(123)
+
+# Create simulation parameters
+n_subjects <- 50  # Number of subjects
+n_timepoints <- 4  # Number of timepoints
+time_values <- c(0, 1, 2, 3)  # Time points (e.g., months)
+groups <- c("Control", "Treatment")  # Group conditions
+
+# Set fixed effects
+intercept <- 10  # Overall mean at baseline
+group_effect <- 3  # Effect of being in treatment group
+time_effect <- 1.5  # Effect of time (per unit)
+interaction_effect <- 0.8  # Additional effect of time for treatment group
+
+# Set random effects variance components
+random_intercept_sd <- 2.0  # Between-subject variability in intercepts
+random_slope_sd <- 0.7  # Between-subject variability in slopes
+random_cor <- 0.3  # Correlation between random intercepts and slopes
+residual_sd <- 1.5  # Within-subject variability (residual error)
+
+# Create data frame
+simdata <- data.frame()
+
+# Generate data for each subject
+for (i in 1:n_subjects) {
+  # Assign group (alternating)
+  group <- groups[(i %% 2) + 1]
+  
+  # Generate random effects for this subject
+  # Using multivariate normal distribution for correlated random effects
+  sigma <- matrix(c(random_intercept_sd^2, 
+                    random_cor * random_intercept_sd * random_slope_sd,
+                    random_cor * random_intercept_sd * random_slope_sd, 
+                    random_slope_sd^2), 
+                  nrow = 2)
+  random_effects <- MASS::mvrnorm(1, mu = c(0, 0), Sigma = sigma)
+  subject_intercept <- random_effects[1]
+  subject_slope <- random_effects[2]
+  
+  # Generate observations for each timepoint
+  for (t in 1:n_timepoints) {
+    time <- time_values[t]
+    
+    # Calculate expected value based on fixed and random effects
+    group_val <- ifelse(group == "Treatment", 1, 0)
+    expected <- intercept + 
+                group_effect * group_val + 
+                time_effect * time + 
+                interaction_effect * group_val * time +
+                subject_intercept + 
+                subject_slope * time
+    
+    # Add random noise (residual error)
+    observed <- expected + rnorm(1, mean = 0, sd = residual_sd)
+    
+    # Add to data frame
+    simdata <- rbind(simdata, data.frame(
+      ID = paste0("S", i),
+      Group = group,
+      Time = time,
+      Score = observed
+    ))
+  }
+}
+
+# Convert categorical variables to factors
+simdata$ID <- factor(simdata$ID)
+simdata$Group <- factor(simdata$Group)
+
+# View the structure of the data
+str(simdata)
+
+# View a sample of the data
+head(simdata, 10)
+
+
+# subset
+subset_data <- simdata %>%
+  # Get distinct subject IDs, take first 60
+  group_by(ID) %>%
+  filter(ID %in% (unique(simdata$ID)[1:20]))
+
+write.csv(subset_data, file = "mixedeffectsdata.csv")
+
+```
+
+```{r}
+# fixed effects only model
+lmodel <- lm(Score ~ Group * Time, data = subset_data)
+# View model summary
+summary(lmodel)
+
+# random interceot only model
+lmmodeli <- lmer(Score ~ Group * Time + (1|ID), data = subset_data)
+# View model summary
+summary(lmmodeli)
+
+# Fit the mixed model with random intercept and slope
+lmmodel <- lmer(Score ~ Group * Time + (1 + Time | ID), data = subset_data)
+# View model summary
+summary(lmmodel)
+
+# Fit the mixed model with random intercept and slope assuming uncorrelated intercepts and slopes (WARNING)
+model_uncorrelated <- lmer(Score ~ Group * Time + (1 + Time || ID), data = simdata)
+summary(model_uncorrelated)
+
+# Plot the data to visualize
+ggplot(subset_data, aes(x = Time, y = Score, group = ID, color = Group)) +
+  geom_line(alpha = 0.4) +
+  geom_point(alpha = 0.4) +
+  stat_summary(aes(group = Group), fun = mean, geom = "line", size = 1.5) +
+  theme_minimal() +
+  labs(title = "Simulated Longitudinal Data",
+       subtitle = "Individual trajectories with group means",
+       y = "Outcome Score", 
+       x = "Time Point")
+```
